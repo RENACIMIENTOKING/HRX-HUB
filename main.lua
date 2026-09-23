@@ -1,62 +1,70 @@
--- Cargar librería de Interfaz Gráfica (Rayfield UI)
+-- ========================================================
+-- ANTI-KICK & BYPASS INTERNO
+-- ========================================================
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Modificación de metamétodo para bloquear la expulsión (Kick)
+pcall(function()
+    local mt = getrawmetatable(game)
+    if mt then
+        local old = mt.__namecall
+        setreadonly(mt, false)
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if tostring(method):lower() == "kick" then
+                return nil
+            end
+            return old(self, ...)
+        end)
+    end
+end)
+
+-- ========================================================
+-- SISTEMA DE WHITELIST
+-- ========================================================
+local Whitelist = {
+    ["ianjajajjajajapolo1"] = true,
+    ["renacimientoking"] = true,
+}
+
+local playerUsername = string.lower(LocalPlayer.Name)
+
+if not Whitelist[playerUsername] then
+    warn("HRX PRIVADO: No estás en la Whitelist para usar este script.")
+    return
+end
+
+-- ========================================================
+-- LIBRERÍA DE INTERFAZ GRÁFICA (RAYFIELD UI)
+-- ========================================================
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "HRX-PRIV | Hey, HIX_RENACIMIENTOking!",
-   LoadingTitle = "XEO Script Suite",
-   LoadingSubtitle = "by HRX_RENACIMIENTOKING",
-   ConfigurationSaving = {
-      Enabled = false
-   }
+   Name = "HRX PRIVADO | Fast Farming",
+   LoadingTitle = "Cargando HRX Suite...",
+   LoadingSubtitle = "by RENACIMIENTOKING",
+   ConfigurationSaving = { Enabled = false }
 })
 
--- Variables de Estado (Toggles)
+-- Variables de Estado
 local AutoLift = false
 local AutoSquat = false
 local FastRebirth = false
 local HidePets = false
 local HidePopups = false
 local AntiLag = false
-local AutoEatEggs = false
-local AutoSpinWheel = false
-
--- Serviciales del Juego
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local VirtualUser = game:GetService("VirtualUser")
-
--- Anti-AFK para evitar desconexiones
-LocalPlayer.Idled:Connect(function()
-    VirtualUser:CaptureController()
-    VirtualUser:ClickButton2(Vector2.new(0,0))
-end)
 
 ----------------------------------------------------------------
--- TAB 1: STRENGTH (MAIN)
+-- PESTAÑA 1: STRENGTH (MAIN)
 ----------------------------------------------------------------
 local MainTab = Window:CreateTab("Strength (Main)", 4483362458)
 
-MainTab:CreateLabel("Status: Active")
-MainTab:CreateLabel("Runtime: 00d 00h 00m")
-
-MainTab:CreateToggle({
-   Name = "Controlled Speed",
-   CurrentValue = true,
-   Callback = function(Value)
-      -- Ajustar velocidad de ejecución de acciones
-   end,
-})
-
-MainTab:CreateToggle({
-   Name = "Fast Step",
-   CurrentValue = true,
-   Callback = function(Value)
-      -- Optimización de frames/intervalo
-   end,
-})
+MainTab:CreateLabel("Status: Activo")
+MainTab:CreateLabel("Usuario: " .. LocalPlayer.Name)
 
 ----------------------------------------------------------------
--- TAB 2: REBIRTHS
+-- PESTAÑA 2: REBIRTHS
 ----------------------------------------------------------------
 local RebirthTab = Window:CreateTab("Rebirths", 4483362458)
 
@@ -67,18 +75,22 @@ RebirthTab:CreateToggle({
       FastRebirth = Value
       task.spawn(function()
           while FastRebirth do
-              -- Evento remoto para ejecutar el Renacimiento/Rebirth
               pcall(function()
-                  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Rebirth"):FireServer()
+                  local rebEvent = game:GetService("ReplicatedStorage"):FindFirstChild("rebirthEvent") or 
+                                   game:GetService("ReplicatedStorage"):FindFirstChild("rEvents") and 
+                                   game:GetService("ReplicatedStorage").rEvents:FindFirstChild("rebirthEvent")
+                  if rebEvent then
+                      rebEvent:FireServer("rebirthRequest")
+                  end
               end)
-              task.wait(0.1)
+              task.wait(0.5) -- Delay de seguridad para evitar Kicks
           end
       end)
    end,
 })
 
 ----------------------------------------------------------------
--- TAB 3: OTHER (FARM & CONFIG)
+-- PESTAÑA 3: OTHER
 ----------------------------------------------------------------
 local OtherTab = Window:CreateTab("Other", 4483362458)
 
@@ -89,11 +101,15 @@ OtherTab:CreateToggle({
       AutoLift = Value
       task.spawn(function()
           while AutoLift do
-              -- Evento o simulación para entrenamiento con pesas
               pcall(function()
-                  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Train"):FireServer("Lift")
+                  local muscleEvent = game:GetService("ReplicatedStorage"):FindFirstChild("muscleEvent") or 
+                                      game:GetService("ReplicatedStorage"):FindFirstChild("rEvents") and 
+                                      game:GetService("ReplicatedStorage").rEvents:FindFirstChild("muscleEvent")
+                  if muscleEvent then
+                      muscleEvent:FireServer("punch", "RightHand")
+                  end
               end)
-              task.wait(0.05)
+              task.wait(0.15) -- Delay seguro
           end
       end)
    end,
@@ -106,11 +122,15 @@ OtherTab:CreateToggle({
       AutoSquat = Value
       task.spawn(function()
           while AutoSquat do
-              -- Evento o simulación para sentadillas
               pcall(function()
-                  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Train"):FireServer("Squat")
+                  local muscleEvent = game:GetService("ReplicatedStorage"):FindFirstChild("muscleEvent") or 
+                                      game:GetService("ReplicatedStorage"):FindFirstChild("rEvents") and 
+                                      game:GetService("ReplicatedStorage").rEvents:FindFirstChild("muscleEvent")
+                  if muscleEvent then
+                      muscleEvent:FireServer("punch", "LeftHand")
+                  end
               end)
-              task.wait(0.05)
+              task.wait(0.15) -- Delay seguro
           end
       end)
    end,
@@ -121,7 +141,6 @@ OtherTab:CreateToggle({
    CurrentValue = false,
    Callback = function(Value)
       HidePets = Value
-      -- Ocultar o mostrar modelos de mascotas en workspace
       for _, v in pairs(workspace:GetChildren()) do
           if v.Name:lower():find("pet") then
               v.Transparent = HidePets and 1 or 0
@@ -151,44 +170,4 @@ OtherTab:CreateToggle({
       AntiLag = Value
       if AntiLag then
           game:GetService("Lighting").GlobalShadows = false
-          for _, v in pairs(game:GetDescendants()) do
-              if v:IsA("BasePart") then
-                  v.Material = Enum.Material.SmoothPlastic
-              end
-          end
-      end
-   end,
-})
-
-OtherTab:CreateButton({
-   Name = "Equip Rep Pets",
-   Callback = function()
-      pcall(function()
-          game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("EquipBestPets"):FireServer()
-      end)
-   end,
-})
-
-OtherTab:CreateToggle({
-   Name = "Eat Eggs",
-   CurrentValue = false,
-   Callback = function(Value)
-      AutoEatEggs = Value
-   end,
-})
-
-OtherTab:CreateToggle({
-   Name = "Spin Fortune Wheel",
-   CurrentValue = false,
-   Callback = function(Value)
-      AutoSpinWheel = Value
-   end,
-})
-
-----------------------------------------------------------------
--- TAB 4: INFO
-----------------------------------------------------------------
-local InfoTab = Window:CreateTab("Info", 4483362458)
-InfoTab:CreateLabel("Script: XEO-Public")
-InfoTab:CreateLabel("Developer: xXThe_PainsaacXx")
-InfoTab:CreateLabel("Tip: For me, 20-40 works the best. Try around!")
+          for _, v in pairs(game:GetDesc
