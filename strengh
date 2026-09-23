@@ -1,4 +1,4 @@
--- Cola de teletransporte para la auto-ejecución (Reemplaza TU_LINK_DE_PASTEBIN_AQUÍ con el link raw de tu script)
+-- Cola de teletransporte para la auto-ejecución (loadstring(game:HttpGet("https://raw.githubusercontent.com/RENACIMIENTOKING/HRX-HUB/main/strengh"))())
 local queueFunction = syn and syn.queue_on_teleport or queue_on_teleport
 if queueFunction then
     pcall(function()
