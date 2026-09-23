@@ -1,281 +1,194 @@
--- ========================================================
--- SISTEMA DE WHITELIST (HRX PRIVADO)
--- ========================================================
+-- Cargar librería de Interfaz Gráfica (Rayfield UI)
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "HRX-PRIV | Hey, HIX_RENACIMIENTOking!",
+   LoadingTitle = "XEO Script Suite",
+   LoadingSubtitle = "by HRX_RENACIMIENTOKING",
+   ConfigurationSaving = {
+      Enabled = false
+   }
+})
+
+-- Variables de Estado (Toggles)
+local AutoLift = false
+local AutoSquat = false
+local FastRebirth = false
+local HidePets = false
+local HidePopups = false
+local AntiLag = false
+local AutoEatEggs = false
+local AutoSpinWheel = false
+
+-- Serviciales del Juego
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local VirtualUser = game:GetService("VirtualUser")
 
-local Whitelist = {
-    ["ianjajajjajajapolo1"] = true,
-    ["renacimientoking"] = true,
-}
+-- Anti-AFK para evitar desconexiones
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new(0,0))
+end)
 
-local playerUsername = string.lower(LocalPlayer.Name)
+----------------------------------------------------------------
+-- TAB 1: STRENGTH (MAIN)
+----------------------------------------------------------------
+local MainTab = Window:CreateTab("Strength (Main)", 4483362458)
 
-if not Whitelist[playerUsername] then
-    warn("HRX PRIVADO: No estás en la Whitelist para usar este script.")
-    return
-end
+MainTab:CreateLabel("Status: Active")
+MainTab:CreateLabel("Runtime: 00d 00h 00m")
 
--- ========================================================
--- INTERFAZ GRÁFICA (GUI) - HRX PRIVADO
--- ========================================================
-local CoreGui = game:GetService("CoreGui")
+MainTab:CreateToggle({
+   Name = "Controlled Speed",
+   CurrentValue = true,
+   Callback = function(Value)
+      -- Ajustar velocidad de ejecución de acciones
+   end,
+})
 
-if CoreGui:FindFirstChild("HRX_PRIVADO_GUI") then
-    CoreGui.HRX_PRIVADO_GUI:Destroy()
-end
+MainTab:CreateToggle({
+   Name = "Fast Step",
+   CurrentValue = true,
+   Callback = function(Value)
+      -- Optimización de frames/intervalo
+   end,
+})
 
-local PRIMARY_COLOR = Color3.fromRGB(0, 170, 255)   -- Celeste
-local BG_COLOR      = Color3.fromRGB(18, 18, 22)     -- Fondo Oscuro
-local CARD_COLOR    = Color3.fromRGB(28, 28, 35)     -- Contenedores
-local TEXT_COLOR    = Color3.fromRGB(255, 255, 255) -- Blanco
-local MUTED_TEXT    = Color3.fromRGB(180, 180, 180) -- Gris claro
+----------------------------------------------------------------
+-- TAB 2: REBIRTHS
+----------------------------------------------------------------
+local RebirthTab = Window:CreateTab("Rebirths", 4483362458)
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HRX_PRIVADO_GUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = CoreGui
+RebirthTab:CreateToggle({
+   Name = "Fast Rebirth",
+   CurrentValue = false,
+   Callback = function(Value)
+      FastRebirth = Value
+      task.spawn(function()
+          while FastRebirth do
+              -- Evento remoto para ejecutar el Renacimiento/Rebirth
+              pcall(function()
+                  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Rebirth"):FireServer()
+              end)
+              task.wait(0.1)
+          end
+      end)
+   end,
+})
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 520, 0, 360)
-MainFrame.Position = UDim2.new(0.5, -260, 0.5, -180)
-MainFrame.BackgroundColor3 = BG_COLOR
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+----------------------------------------------------------------
+-- TAB 3: OTHER (FARM & CONFIG)
+----------------------------------------------------------------
+local OtherTab = Window:CreateTab("Other", 4483362458)
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 8)
-MainCorner.Parent = MainFrame
+OtherTab:CreateToggle({
+   Name = "Industrial Lift",
+   CurrentValue = false,
+   Callback = function(Value)
+      AutoLift = Value
+      task.spawn(function()
+          while AutoLift do
+              -- Evento o simulación para entrenamiento con pesas
+              pcall(function()
+                  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Train"):FireServer("Lift")
+              end)
+              task.wait(0.05)
+          end
+      end)
+   end,
+})
 
-local Header = Instance.new("Frame")
-Header.Name = "Header"
-Header.Size = UDim2.new(1, 0, 0, 35)
-Header.BackgroundColor3 = PRIMARY_COLOR
-Header.BorderSizePixel = 0
-Header.Parent = MainFrame
+OtherTab:CreateToggle({
+   Name = "Industrial Squat",
+   CurrentValue = false,
+   Callback = function(Value)
+      AutoSquat = Value
+      task.spawn(function()
+          while AutoSquat do
+              -- Evento o simulación para sentadillas
+              pcall(function()
+                  game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Train"):FireServer("Squat")
+              end)
+              task.wait(0.05)
+          end
+      end)
+   end,
+})
 
-local HeaderCorner = Instance.new("UICorner")
-HeaderCorner.CornerRadius = UDim.new(0, 8)
-HeaderCorner.Parent = Header
+OtherTab:CreateToggle({
+   Name = "Hide Pets",
+   CurrentValue = false,
+   Callback = function(Value)
+      HidePets = Value
+      -- Ocultar o mostrar modelos de mascotas en workspace
+      for _, v in pairs(workspace:GetChildren()) do
+          if v.Name:lower():find("pet") then
+              v.Transparent = HidePets and 1 or 0
+          end
+      end
+   end,
+})
 
-local Title = Instance.new("TextLabel")
-Title.Name = "Title"
-Title.Size = UDim2.new(1, -20, 1, 0)
-Title.Position = UDim2.new(0, 10, 0, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "HRX PRIVADO | Fast Farming - Hey, " .. LocalPlayer.Name .. "!"[cite: 1, 2, 3, 4]
-Title.TextColor3 = TEXT_COLOR
-Title.TextSize = 15
-Title.Font = Enum.Font.SourceSansBold
-Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.Parent = Header
+OtherTab:CreateToggle({
+   Name = "Hide Popups",
+   CurrentValue = false,
+   Callback = function(Value)
+      HidePopups = Value
+      local gui = LocalPlayer:WaitForChild("PlayerGui")
+      for _, v in pairs(gui:GetChildren()) do
+          if v:IsA("ScreenGui") and v.Name:lower():find("popup") then
+              v.Enabled = not HidePopups
+          end
+      end
+   end,
+})
 
-local TabContainer = Instance.new("Frame")
-TabContainer.Name = "TabContainer"
-TabContainer.Size = UDim2.new(1, -20, 0, 30)
-TabContainer.Position = UDim2.new(0, 10, 0, 40)
-TabContainer.BackgroundTransparency = 1
-TabContainer.Parent = MainFrame
+OtherTab:CreateToggle({
+   Name = "Anti Lag (for bad devices)",
+   CurrentValue = false,
+   Callback = function(Value)
+      AntiLag = Value
+      if AntiLag then
+          game:GetService("Lighting").GlobalShadows = false
+          for _, v in pairs(game:GetDescendants()) do
+              if v:IsA("BasePart") then
+                  v.Material = Enum.Material.SmoothPlastic
+              end
+          end
+      end
+   end,
+})
 
-local TabLayout = Instance.new("UIListLayout")
-TabLayout.FillDirection = Enum.FillDirection.Horizontal
-TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabLayout.Padding = UDim.new(0, 5)
-TabLayout.Parent = TabContainer
+OtherTab:CreateButton({
+   Name = "Equip Rep Pets",
+   Callback = function()
+      pcall(function()
+          game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("EquipBestPets"):FireServer()
+      end)
+   end,
+})
 
-local ContentArea = Instance.new("Frame")
-ContentArea.Name = "ContentArea"
-ContentArea.Size = UDim2.new(1, -20, 1, -80)
-ContentArea.Position = UDim2.new(0, 10, 0, 75)
-ContentArea.BackgroundTransparency = 1
-ContentArea.Parent = MainFrame
+OtherTab:CreateToggle({
+   Name = "Eat Eggs",
+   CurrentValue = false,
+   Callback = function(Value)
+      AutoEatEggs = Value
+   end,
+})
 
-local Tabs = {}
-local TabPages = {}
+OtherTab:CreateToggle({
+   Name = "Spin Fortune Wheel",
+   CurrentValue = false,
+   Callback = function(Value)
+      AutoSpinWheel = Value
+   end,
+})
 
-local function CreateTab(tabName, layoutOrder)
-    local TabButton = Instance.new("TextButton")
-    TabButton.Name = tabName .. "Tab"
-    TabButton.Size = UDim2.new(0, 95, 1, 0)
-    TabButton.BackgroundColor3 = CARD_COLOR
-    TabButton.BorderSizePixel = 0
-    TabButton.Text = tabName
-    TabButton.TextColor3 = MUTED_TEXT
-    TabButton.Font = Enum.Font.SourceSans
-    TabButton.TextSize = 13
-    TabButton.LayoutOrder = layoutOrder
-    TabButton.Parent = TabContainer
-
-    local TabCorner = Instance.new("UICorner")
-    TabCorner.CornerRadius = UDim.new(0, 4)
-    TabCorner.Parent = TabButton
-
-    local Page = Instance.new("ScrollingFrame")
-    Page.Name = tabName .. "Page"
-    Page.Size = UDim2.new(1, 0, 1, 0)
-    Page.BackgroundTransparency = 1
-    Page.BorderSizePixel = 0
-    Page.ScrollBarThickness = 4
-    Page.Visible = false
-    Page.Parent = ContentArea
-
-    local PageLayout = Instance.new("UIListLayout")
-    PageLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    PageLayout.Padding = UDim.new(0, 6)
-    PageLayout.Parent = Page
-
-    TabButton.MouseButton1Click:Connect(function()
-        for _, p in pairs(TabPages) do p.Visible = false end
-        for _, b in pairs(Tabs) do 
-            b.BackgroundColor3 = CARD_COLOR 
-            b.TextColor3 = MUTED_TEXT
-        end
-        Page.Visible = true
-        TabButton.BackgroundColor3 = PRIMARY_COLOR
-        TabButton.TextColor3 = TEXT_COLOR
-    end)
-
-    table.insert(Tabs, TabButton)
-    table.insert(TabPages, Page)
-    return Page
-end
-
--- Pestañas iguales a tus imágenes
-local RebirthsPage     = CreateTab("Rebirths", 1)[cite: 1]
-local StrengthMainPage = CreateTab("Strength (Main)", 2)[cite: 2]
-local StrengthLagPage  = CreateTab("Strength (If Main lags)", 3)[cite: 3]
-local OtherPage        = CreateTab("Other", 4)[cite: 4]
-local InfoPage         = CreateTab("Info", 5)[cite: 1]
-
-Tabs[1].BackgroundColor3 = PRIMARY_COLOR
-Tabs[1].TextColor3 = TEXT_COLOR
-TabPages[1].Visible = true
-
--- Funciones auxiliares para agregar elementos visuales
-local function AddLabel(parent, text, color)
-    local Label = Instance.new("TextLabel")
-    Label.Size = UDim2.new(1, 0, 0, 18)
-    Label.BackgroundTransparency = 1
-    Label.Text = text
-    Label.TextColor3 = color or TEXT_COLOR
-    Label.TextSize = 14
-    Label.Font = Enum.Font.SourceSans
-    Label.TextXAlignment = Enum.TextXAlignment.Left
-    Label.Parent = parent
-    return Label
-end
-
-local function AddToggle(parent, text, defaultState, callback)
-    local ToggleFrame = Instance.new("Frame")
-    ToggleFrame.Size = UDim2.new(1, 0, 0, 24)
-    ToggleFrame.BackgroundTransparency = 1
-    ToggleFrame.Parent = parent
-
-    local Box = Instance.new("TextButton")
-    Box.Size = UDim2.new(0, 18, 0, 18)
-    Box.Position = UDim2.new(0, 0, 0.5, -9)
-    Box.BackgroundColor3 = defaultState and PRIMARY_COLOR or CARD_COLOR
-    Box.BorderSizePixel = 0
-    Box.Text = defaultState and "✓" or ""
-    Box.TextColor3 = TEXT_COLOR
-    Box.TextSize = 12
-    Box.Font = Enum.Font.SourceSansBold
-    Box.Parent = ToggleFrame
-
-    local BoxCorner = Instance.new("UICorner")
-    BoxCorner.CornerRadius = UDim.new(0, 3)
-    BoxCorner.Parent = Box
-
-    local TextBtn = Instance.new("TextButton")
-    TextBtn.Size = UDim2.new(1, -28, 1, 0)
-    TextBtn.Position = UDim2.new(0, 26, 0, 0)
-    TextBtn.BackgroundTransparency = 1
-    TextBtn.Text = text
-    TextBtn.TextColor3 = TEXT_COLOR
-    TextBtn.TextSize = 14
-    TextBtn.Font = Enum.Font.SourceSans
-    TextBtn.TextXAlignment = Enum.TextXAlignment.Left
-    TextBtn.Parent = ToggleFrame
-
-    local state = defaultState
-    local function Toggle()
-        state = not state
-        Box.BackgroundColor3 = state and PRIMARY_COLOR or CARD_COLOR
-        Box.Text = state and "✓" or ""
-        if callback then callback(state) end
-    end
-
-    Box.MouseButton1Click:Connect(Toggle)
-    TextBtn.MouseButton1Click:Connect(Toggle)
-end
-
-local function AddButton(parent, text, callback)
-    local Btn = Instance.new("TextButton")
-    Btn.Size = UDim2.new(0, 180, 0, 26)
-    Btn.BackgroundColor3 = PRIMARY_COLOR
-    Btn.BorderSizePixel = 0
-    Btn.Text = text
-    Btn.TextColor3 = TEXT_COLOR
-    Btn.TextSize = 13
-    Btn.Font = Enum.Font.SourceSansBold
-    Btn.Parent = parent
-
-    local BtnCorner = Instance.new("UICorner")
-    BtnCorner.CornerRadius = UDim.new(0, 4)
-    BtnCorner.Parent = Btn
-
-    if callback then Btn.MouseButton1Click:Connect(callback) end
-end
-
--- ========================================================
--- AGREGAR OPCIONES A CADA PESTAÑA
--- ========================================================
-
--- --- Pestaña: Rebirths ---[cite: 1]
-AddLabel(RebirthsPage, "Status: Inactive", PRIMARY_COLOR)[cite: 1]
-AddLabel(RebirthsPage, "Runtime: 0d 0h 0m 0s", TEXT_COLOR)[cite: 1]
-AddLabel(RebirthsPage, "Rebirths: 10.88M | Gained: 0", TEXT_COLOR)[cite: 1]
-AddLabel(RebirthsPage, "Pace: -- / Hour | -- / Day | -- / Week", TEXT_COLOR)[cite: 1]
-AddLabel(RebirthsPage, "Average: -- / Hour | -- / Day | -- / Week", TEXT_COLOR)[cite: 1]
-AddToggle(RebirthsPage, "Fast Rebirth", false, function(active) print("Fast Rebirth:", active) end)[cite: 1]
-
--- --- Pestaña: Strength (Main) ---[cite: 2]
-AddLabel(StrengthMainPage, "Status: Inactive", PRIMARY_COLOR)[cite: 2]
-AddLabel(StrengthMainPage, "Runtime: 0d 0h 0m 0s", TEXT_COLOR)[cite: 2]
-AddLabel(StrengthMainPage, "Strength: 40.42B | Gained: 0", TEXT_COLOR)[cite: 2]
-AddLabel(StrengthMainPage, "Durability: 0 | Gained: 0", TEXT_COLOR)[cite: 2]
-AddLabel(StrengthMainPage, "Strength Pace: -- / Hour | -- / Day", TEXT_COLOR)[cite: 2]
-AddLabel(StrengthMainPage, "Durability Pace: -- / Hour | -- / Day", TEXT_COLOR)[cite: 2]
-AddLabel(StrengthMainPage, "Strength Average: -- / Hour | -- / Day", TEXT_COLOR)[cite: 2]
-AddLabel(StrengthMainPage, "Durability Average: -- / Hour | -- / Day", TEXT_COLOR)[cite: 2]
-AddToggle(StrengthMainPage, "Fast Rep", false, function(active) print("Fast Rep:", active) end)[cite: 2]
-
--- --- Pestaña: Strength (If Main lags) ---[cite: 3]
-AddLabel(StrengthLagPage, "Status: Inactive", PRIMARY_COLOR)[cite: 3]
-AddLabel(StrengthLagPage, "Runtime: 0d 0h 0m 0s", TEXT_COLOR)[cite: 3]
-AddLabel(StrengthLagPage, "Strength: 40.42B | Gained: 0", TEXT_COLOR)[cite: 3]
-AddLabel(StrengthLagPage, "Durability: 0 | Gained: 0", TEXT_COLOR)[cite: 3]
-AddToggle(StrengthLagPage, "Controlled Speed", true, function(active) print("Controlled Speed:", active) end)[cite: 3]
-AddToggle(StrengthLagPage, "Fast Rep", false, function(active) print("Fast Rep:", active) end)[cite: 3]
-
--- --- Pestaña: Other ---[cite: 4]
-AddLabel(OtherPage, "Protein Eggs: 623", TEXT_COLOR)[cite: 4]
-AddLabel(OtherPage, "x2 Strength: 2d 18h 41m 8s", TEXT_COLOR)[cite: 4]
-AddToggle(OtherPage, "Eat Eggs", false, function(a) print("Eat Eggs:", a) end)[cite: 4]
-AddToggle(OtherPage, "Auto Shake (just to eat them)", false, function(a) print("Auto Shake:", a) end)[cite: 4]
-AddToggle(OtherPage, "Spin Fortune Wheel", false, function(a) print("Spin Wheel:", a) end)[cite: 4]
-AddToggle(OtherPage, "Eat All Boosts (Expect Lag)", false, function(a) print("Eat Boosts:", a) end)[cite: 4]
-AddToggle(OtherPage, "Hide Pets", true, function(a) print("Hide Pets:", a) end)[cite: 4]
-AddToggle(OtherPage, "Hide Popups", true, function(a) print("Hide Popups:", a) end)[cite: 4]
-
-AddButton(OtherPage, "Industrial Lift", function() print("Industrial Lift") end)[cite: 4]
-AddButton(OtherPage, "Industrial Squat", function() print("Industrial Squat") end)[cite: 4]
-AddButton(OtherPage, "Anti Lag (for bad devices)", function() print("Anti Lag") end)[cite: 4]
-AddButton(OtherPage, "Equip Rep Pets", function() print("Equip Pets") end)[cite: 4]
-
--- --- Pestaña: Info ---[cite: 1]
-AddLabel(InfoPage, "Script: HRX PRIVADO", PRIMARY_COLOR)
-AddLabel(InfoPage, "Usuario: " .. LocalPlayer.Name, TEXT_COLOR)
+----------------------------------------------------------------
+-- TAB 4: INFO
+----------------------------------------------------------------
+local InfoTab = Window:CreateTab("Info", 4483362458)
+InfoTab:CreateLabel("Script: XEO-Public")
+InfoTab:CreateLabel("Developer: xXThe_PainsaacXx")
+InfoTab:CreateLabel("Tip: For me, 20-40 works the best. Try around!")
