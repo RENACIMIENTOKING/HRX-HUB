@@ -1,0 +1,179 @@
+local Players = game:GetService("Players")
+local VirtualUser = game:GetService("VirtualUser")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+
+----------------------------------------------------------------
+-- 1. WHITELIST Y ACCESO
+----------------------------------------------------------------
+local allowedUsernames = {
+    "XxrenacimientosxX",
+}
+
+local isAllowed = false
+local playerUsername = string.lower(LocalPlayer.Name)
+
+for _, username in ipairs(allowedUsernames) do
+    if playerUsername == string.lower(username) then
+        isAllowed = true
+        break
+    end
+end
+
+if not isAllowed then
+    warn("Acceso denegado, este Script es de compra.")
+    LocalPlayer:Kick("No tienes permiso para ejecutar este Script.")
+    return
+end
+
+----------------------------------------------------------------
+-- 2. ANTI-AFK
+----------------------------------------------------------------
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+    task.wait(1)
+    VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+end)
+
+----------------------------------------------------------------
+-- 3. INTERFAZ GRÁFICA (GUI)
+----------------------------------------------------------------
+local library = loadstring(game:HttpGet("https://pastebin.com/raw/Wbv9FYv2", true))()
+
+local window = library:AddWindow("Clan HRX Hub | Rebirths", {
+    main_color = Color3.fromRGB(0, 191, 255),
+    min_size = Vector2.new(550, 450),
+    can_resize = true,
+})
+
+local AutoFarm = window:AddTab("Rebirth Farm")
+
+----------------------------------------------------------------
+-- 4. MANEJO INTELIGENTE DE MASCOTAS (HASTA 12 SLOTS Y RELLENO)
+----------------------------------------------------------------
+local FarmPetsPriority = {
+    "Swift Samurai",
+    "Señor Supremo Omega", "Omega Overlord",
+    "Perro de núcleo de energía", "Energy Core Dog",
+    "Rare Boss Pet", "Mascota de jefe raro"
+}
+
+local RebirthPetsPriority = {
+    "Hidra de titanio", "Titanium Hydra",
+    "Soberano tribal", "Tribal Overlord"
+}
+
+local function unequipAllPets()
+    local petsFolder = LocalPlayer:FindFirstChild("petsFolder")
+    if not petsFolder then return end
+    for _, folder in pairs(petsFolder:GetChildren()) do
+        if folder:IsA("Folder") then
+            for _, pet in pairs(folder:GetChildren()) do
+                ReplicatedStorage.rEvents.equipPetEvent:FireServer("unequipPet", pet)
+            end
+        end
+    end
+    task.wait(0.05)
+end
+
+local function equipUpTo12Slots(petPriorityList)
+    local petsFolder = LocalPlayer:FindFirstChild("petsFolder")
+    if not petsFolder then return end
+
+    unequipAllPets()
+
+    local equippedCount = 0
+    local maxSlots = 12
+
+    for _, targetName in ipairs(petPriorityList) do
+        if equippedCount >= maxSlots then break end
+
+        for _, folder in pairs(petsFolder:GetChildren()) do
+            if folder:IsA("Folder") then
+                for _, pet in pairs(folder:GetChildren()) do
+                    if string.lower(pet.Name) == string.lower(targetName) then
+                        if equippedCount < maxSlots then
+                            ReplicatedStorage.rEvents.equipPetEvent:FireServer("equipPet", pet)
+                            equippedCount = equippedCount + 1
+                            task.wait(0.02)
+                        else
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+----------------------------------------------------------------
+-- 5. REBIRTHS WITHOUT PACKS + BUCLE 100% AUTOMÁTICO
+----------------------------------------------------------------
+local leaderstats = LocalPlayer:WaitForChild("leaderstats")
+local rebirthFolder = AutoFarm:AddFolder("Rebirths Sin Packs")
+
+local targetRebirthAmount = nil
+local farmingTarget = false
+local repSpeed = 10
+
+rebirthFolder:AddTextBox("Cantidad objetivo de Rebirths", function(value)
+    local amount = tonumber(value) or 1
+    local currentRebirths = leaderstats.Rebirths.Value
+    if amount >= currentRebirths then
+        targetRebirthAmount = amount
+    end
+end, {clear = false})
+
+local targetRebirthToggle = rebirthFolder:AddSwitch("Iniciar Rebirths Automáticos", function(enabled)
+    farmingTarget = enabled
+    if enabled then
+        task.spawn(function()
+            -- Al iniciar, equipamos de entrada las mascotas de fuerza para llenar los 12 slots
+            equipUpTo12Slots(FarmPetsPriority)
+            
+            while farmingTarget do
+                local currentRebirths = leaderstats.Rebirths.Value
+                local requiredStrength = 10000 + 5000 * currentRebirths
+
+                if targetRebirthAmount and currentRebirths >= targetRebirthAmount then
+                    targetRebirthToggle:Set(false)
+                    farmingTarget = false
+                    break
+                end
+
+                if leaderstats.Strength.Value >= requiredStrength then
+                    -- 1. Cambia automáticamente a las pets de Rebirth (Hidra/Soberano) llenando los 12 slots
+                    equipUpTo12Slots(RebirthPetsPriority)
+                    task.wait(0.3)
+                    
+                    -- 2. Ejecuta el renacimiento automáticamente
+                    ReplicatedStorage.rEvents.rebirthRemote:InvokeServer("rebirthRequest")
+                    task.wait(0.8)
+                    
+                    -- 3. Vuelve a equipar automáticamente las pets de fuerza para el siguiente ciclo
+                    equipUpTo12Slots(FarmPetsPriority)
+                    task.wait(0.3)
+                else
+                    -- Hace las repeticiones automáticas para ganar fuerza
+                    for i = 1, repSpeed do
+                        if not farmingTarget then break end
+                        if LocalPlayer:FindFirstChild("muscleEvent") then
+                            LocalPlayer.muscleEvent:FireServer("rep")
+                        end
+                    end
+                end
+
+                task.wait(0.05)
+            end
+        end)
+    end
+end)
+
+AutoFarm:AddButton("Equip Pets de Fuerza (Manual)", function()
+    equipUpTo12Slots(FarmPetsPriority)
+end)
+
+AutoFarm:AddButton("Equip Pets de Rebirth (Manual)", function()
+    equipUpTo12Slots(RebirthPetsPriority)
+end)
