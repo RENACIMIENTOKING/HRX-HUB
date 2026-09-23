@@ -108,6 +108,23 @@ local function equipUpTo12Slots(petPriorityList)
 end
 
 ----------------------------------------------------------------
+-- 4.5. FUNCIÓN AUTO WEIGHT (EQUIPAR PESA AUTOMÁTICAMENTE)
+----------------------------------------------------------------
+local function equipNormalWeight()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    local character = LocalPlayer.Character
+    
+    if backpack and character then
+        local weightTool = backpack:FindFirstChild("Weight")
+        local equippedWeight = character:FindFirstChild("Weight")
+        
+        if weightTool and not equippedWeight then
+            weightTool.Parent = character
+        end
+    end
+end
+
+----------------------------------------------------------------
 -- 5. REBIRTHS WITHOUT PACKS + BUCLE 100% AUTOMÁTICO
 ----------------------------------------------------------------
 local leaderstats = LocalPlayer:WaitForChild("leaderstats")
@@ -129,8 +146,10 @@ local targetRebirthToggle = rebirthFolder:AddSwitch("Iniciar Rebirths Automátic
     farmingTarget = enabled
     if enabled then
         task.spawn(function()
-            -- Al iniciar, equipamos de entrada las mascotas de fuerza para llenar los 12 slots
+            -- ¡AQUÍ SE EJECUTA AUTOMÁTICAMENTE AL DARLE START!
+            equipNormalWeight()
             equipUpTo12Slots(FarmPetsPriority)
+            task.wait(0.2)
             
             while farmingTarget do
                 local currentRebirths = leaderstats.Rebirths.Value
@@ -143,19 +162,22 @@ local targetRebirthToggle = rebirthFolder:AddSwitch("Iniciar Rebirths Automátic
                 end
 
                 if leaderstats.Strength.Value >= requiredStrength then
-                    -- 1. Cambia automáticamente a las pets de Rebirth (Hidra/Soberano) llenando los 12 slots
+                    -- 1. Equipa las mascotas de Rebirth (Hidra/Soberano) en los 12 slots
                     equipUpTo12Slots(RebirthPetsPriority)
                     task.wait(0.3)
                     
-                    -- 2. Ejecuta el renacimiento automáticamente
+                    -- 2. Renace automáticamente
                     ReplicatedStorage.rEvents.rebirthRemote:InvokeServer("rebirthRequest")
                     task.wait(0.8)
                     
-                    -- 3. Vuelve a equipar automáticamente las pets de fuerza para el siguiente ciclo
+                    -- 3. Vuelve a equipar la Pesa y las mascotas de Fuerza para el siguiente ciclo
+                    equipNormalWeight()
                     equipUpTo12Slots(FarmPetsPriority)
                     task.wait(0.3)
                 else
-                    -- Hace las repeticiones automáticas para ganar fuerza
+                    -- Asegura que la pesa siempre esté equipada mientras hace repeticiones
+                    equipNormalWeight()
+
                     for i = 1, repSpeed do
                         if not farmingTarget then break end
                         if LocalPlayer:FindFirstChild("muscleEvent") then
@@ -168,6 +190,10 @@ local targetRebirthToggle = rebirthFolder:AddSwitch("Iniciar Rebirths Automátic
             end
         end)
     end
+end)
+
+AutoFarm:AddButton("Equip Normal Weight (Manual)", function()
+    equipNormalWeight()
 end)
 
 AutoFarm:AddButton("Equip Pets de Fuerza (Manual)", function()
