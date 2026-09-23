@@ -6,10 +6,10 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Agrega aquí los nombres de usuario (Username) de las personas autorizadas
 local Whitelist = {
+       "ianjajajjajajapolo1",
     [LocalPlayer.Name] = true, -- Tu usuario se incluye automáticamente
     -- ["ianjajajjajajapolo1"] = true, -- Ejemplo: agrega el nombre exacto de tu amigo
     -- ["NombreDeTuAmigo2"] = true,
-       "ianjajajjajajapolo1".
 }
 
 if not Whitelist[LocalPlayer.Name] then
