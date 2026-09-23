@@ -23,7 +23,6 @@ local LocalPlayer = Players.LocalPlayer
 local allowedUsernames = {
     "ianjajajjajajapolo1",
     "XxrenacimientosxX",
-    "maxina1166",
     "supercloud_sabe2110",
 }
 
